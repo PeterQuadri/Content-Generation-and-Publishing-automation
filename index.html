@@ -2398,21 +2398,23 @@
                 }
 
                 document.getElementById('publish-complete-action').style.display = 'block';
-                if (window.loadDashboardData) window.loadDashboardData();
-
-            } catch (err) {
+                if (win                console.error(`❌ performActualPublish encountered an error on ${platform}:`, err);
+                
                 const toast = document.getElementById(`toast-${platform}`);
+                const row = document.getElementById(`row-${platform}`);
+                const panel = document.getElementById(`panel-${platform}`);
+
                 if (actionType === 'publish_now') {
                     if (toast) toast.style.display = 'none';
-                    if (row) row.style.display = 'none'; // Keep hidden on error
+                    if (row) row.style.display = 'none'; 
                 } else {
-                    panel.style.display = 'none';
-                    row.style.display = 'none'; // Ensure main buttons don't reappear
+                    if (panel) panel.style.display = 'none';
+                    if (row) row.style.display = 'none'; 
                 }
 
                 const targetContainer = (actionType === 'publish_now' ? (row ? row.parentElement : null) : (panel ? panel.parentElement : null));
                 if (!targetContainer) {
-                    console.error("❌ targetContainer not found for error display", { platform, actionType });
+                    console.error("❌ Critical: targetContainer not found for error display", { platform, actionType, rowExists: !!row, panelExists: !!panel });
                     return;
                 }
                 const existingErr = targetContainer.querySelector('.inline-webhook-error');
@@ -2422,9 +2424,15 @@
                 const errDiv = document.createElement('div');
                 errDiv.className = 'inline-webhook-error';
                 errDiv.id = errId;
-                errDiv.style.cssText = "background: var(--status-error-bg); border-left: 3px solid var(--status-error); padding: 1rem; margin-top: 1rem; animation: fadeSlideIn 0.3s ease-out; display: block;";
+                errDiv.style.cssText = "background: var(--status-error-bg); border-left: 3px solid var(--status-error); padding: 1rem; margin-top: 1rem; animation: fadeSlideIn 0.3s ease-out; display: block; visibility: visible; opacity: 1;";
                 
-                const contentText = platform === 'email' ? data.email_body : (platform === 'twitter' ? (data.tweet || data.twitter) : data.linkedin);
+                let contentText = '';
+                try {
+                    contentText = platform === 'email' ? data.email_body : (platform === 'twitter' ? (data.tweet || data.twitter) : data.linkedin);
+                } catch (e) {
+                    console.error("Failed to extract contentText for error display", e);
+                }
+ter' ? (data.tweet || data.twitter) : data.linkedin);
                 // Store content safely on the element to avoid HTML attribute escaping issues
                 errDiv.dataset.content = contentText;
                 errDiv.dataset.platform = platform;
