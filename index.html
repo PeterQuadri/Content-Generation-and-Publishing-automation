@@ -2320,21 +2320,43 @@
                 console.log(`📦 Sending Save Webhook (${platform}):`, savePayload);
                 
                 let res;
+                let resPostId = null; 
+
                 if (actionType === 'publish_now') {
                     if (isRetry) {
                         res = await executeWebhook(WEBHOOKS.publish, publishPayload);
                     } else {
-                        const [publishRes] = await Promise.all([
+                        // Capture both responses; if save fails, we still want to try publishing
+                        const [publishRes, saveRes] = await Promise.all([
                             executeWebhook(WEBHOOKS.publish, publishPayload),
                             executeWebhook(WEBHOOKS.save, savePayload).catch(err => {
                                 console.error('Background Save Silent Failure:', err);
-                                return { ok: true };
+                                return { ok: false, silentFailure: true };
                             })
                         ]);
+                        
+                        // Extract postId if save was successful
+                        if (saveRes && saveRes.ok) {
+                            try {
+                                const saveData = await saveRes.clone().json().catch(() => null);
+                                const firstSaveResult = Array.isArray(saveData) ? saveData[0] : saveData;
+                                resPostId = firstSaveResult?.post_id || firstSaveResult?.id || firstSaveResult?.postId;
+                                console.log(`📌 Extracted Post ID from background save: ${resPostId}`);
+                            } catch (e) {
+                                console.error('Failed to parse save response for postId:', e);
+                            }
+                        }
+                        
                         res = publishRes;
                     }
                 } else {
                     res = await executeWebhook(WEBHOOKS.save, savePayload);
+                    // Extract postId from direct save response
+                    try {
+                        const saveData = await res.clone().json().catch(() => null);
+                        const firstSaveResult = Array.isArray(saveData) ? saveData[0] : saveData;
+                        resPostId = firstSaveResult?.post_id || firstSaveResult?.id || firstSaveResult?.postId;
+                    } catch (e) { }
                 }
 
                 if (!res.ok) {
@@ -2398,6 +2420,7 @@
                 errDiv.dataset.platform = platform;
                 errDiv.dataset.actionType = actionType;
                 errDiv.dataset.scheduledTime = scheduledTime || '';
+                if (resPostId) errDiv.dataset.postId = resPostId;
                 
                 errDiv.innerHTML = `
                     <p style="color: var(--status-error); font-size: 0.85rem; padding-bottom: 0.8rem; font-family:var(--font-mono);">${err.message}</p>
@@ -2424,7 +2447,7 @@
         window.markAsManual = async (errId, btn) => {
             const errDiv = document.getElementById(errId);
             if (!errDiv) return;
-            const { content, platform } = errDiv.dataset;
+            const { content, platform, postId } = errDiv.dataset;
             const originalText = btn.textContent;
             btn.disabled = true;
             btn.textContent = 'Marking...';
@@ -2436,6 +2459,7 @@
                     body: JSON.stringify({
                         content: content,
                         platform: platform,
+                        post_id: postId || null,
                         session_id: sessionId
                     })
                 });
