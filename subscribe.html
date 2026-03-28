@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Subscribe - Fetemi</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Serif+Display&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&family=DM+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <style>
+        :root {
+            --accent-color: #E8A838;
+            --bg-base: #080809;
+            --bg-surface: #111114;
+            --border-subtle: #222228;
+            --text-secondary: #666672;
+
+            --status-error: #ff4a4a;
+            --status-error-bg: rgba(255, 74, 74, 0.1);
+            --status-success: #2ecca8;
+            --status-success-bg: rgba(46, 204, 168, 0.1);
+
+            --font-display: 'Bebas Neue', sans-serif;
+            --font-serif: 'DM Serif Display', serif;
+            --font-sans: 'DM Sans', sans-serif;
+            --font-mono: 'DM Mono', monospace;
+
+            --spacing-xs: 0.25rem;
+            --spacing-sm: 0.5rem;
+            --spacing-md: 1rem;
+            --spacing-lg: 2rem;
+            --spacing-xl: 4rem;
+            --transition-smooth: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-base);
+            color: #ededf0;
+            font-family: var(--font-sans);
+            line-height: 1.6;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            pointer-events: none;
+            z-index: 9999;
+            opacity: 0.04;
+            filter: url(#noiseFilter);
+        }
+
+        .header {
+            text-align: center;
+            padding: var(--spacing-lg) var(--spacing-md) var(--spacing-md);
+            background: var(--bg-base);
+            position: relative;
+            z-index: 10;
+        }
+
+        .header h1 {
+            font-family: var(--font-serif);
+            font-weight: 400;
+            font-size: 2.2rem;
+            letter-spacing: -0.01em;
+            margin-bottom: var(--spacing-xs);
+        }
+
+        .header p {
+            font-family: var(--font-mono);
+            color: var(--text-secondary);
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            font-weight: 500;
+        }
+
+        .view-divider {
+            border: none;
+            height: 1px;
+            background: #1a1a1f;
+            width: 100%;
+            position: relative;
+            z-index: 10;
+        }
+
+        .subscribe-wrap {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: var(--spacing-xl) var(--spacing-md);
+            position: relative;
+            z-index: 10;
+        }
+
+        .form-card {
+            background: var(--bg-surface);
+            border: 1px solid var(--border-subtle);
+            border-radius: 24px;
+            padding: 3.5rem 2.5rem;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+            max-width: 500px;
+            width: 100%;
+            text-align: center;
+        }
+
+        .form-card h2 {
+            font-family: var(--font-display);
+            font-size: 3rem;
+            margin-bottom: var(--spacing-sm);
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+        }
+
+        .form-card p.subhead {
+            color: var(--text-secondary);
+            margin-bottom: var(--spacing-lg);
+            font-size: 1.05rem;
+        }
+
+        .input-group {
+            margin-bottom: var(--spacing-lg);
+            text-align: left;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: var(--spacing-sm);
+            color: var(--text-secondary);
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+        }
+
+        .form-control {
+            width: 100%;
+            background: #0d0d10;
+            border: 1px solid #2a2a32;
+            color: #ededf0;
+            font-family: var(--font-sans);
+            padding: 1.2rem;
+            font-size: 1rem;
+            border-radius: 0;
+            transition: var(--transition-smooth);
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: #4a5165;
+            background: #121217;
+        }
+
+        select.form-control {
+            appearance: none;
+            cursor: pointer;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23666672' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+            background-repeat: no-reverse;
+            background-position: right 1rem center;
+            background-size: 1em;
+            padding-right: 3rem;
+        }
+
+        .btn-submit {
+            width: 100%;
+            background: var(--accent-color);
+            color: var(--bg-base);
+            font-family: var(--font-display);
+            font-size: 1.6rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            border: none;
+            padding-top: 1.2rem;
+            padding-bottom: 1rem;
+            cursor: pointer;
+            transition: var(--transition-smooth);
+            margin-top: var(--spacing-xs);
+        }
+
+        .btn-submit:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(232, 168, 56, 0.2);
+            filter: brightness(1.1);
+        }
+
+        .btn-submit:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .muted-text {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            margin-top: var(--spacing-lg);
+        }
+
+        .toast {
+            padding: 1rem;
+            margin-bottom: var(--spacing-lg);
+            border-left: 3px solid transparent;
+            display: none;
+            text-align: left;
+            font-size: 0.95rem;
+            animation: fadeSlideIn 0.3s ease-out;
+        }
+
+        .toast.error {
+            background: var(--status-error-bg);
+            border-left-color: var(--status-error);
+            color: var(--status-error);
+        }
+
+        .toast.success {
+            background: var(--status-success-bg);
+            border-left-color: var(--status-success);
+            color: var(--status-success);
+        }
+
+        @keyframes fadeSlideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <svg style="display:none;">
+        <filter id="noiseFilter">
+            <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="3" stitchTiles="stitch" />
+        </filter>
+    </svg>
+
+    <header class="header">
+        <h1>Fetemi</h1>
+        <p>Content Engine</p>
+    </header>
+
+    <hr class="view-divider" />
+
+    <main class="subscribe-wrap">
+        <div class="form-card">
+            <h2>Stay in the loop</h2>
+            <p class="subhead">Get Fetemi content insights delivered to your inbox</p>
+
+            <div id="status-toast" class="toast"></div>
+
+            <div class="input-group">
+                <label for="sub-name">Name</label>
+                <input type="text" id="sub-name" class="form-control" placeholder="Jane Doe">
+            </div>
+
+            <div class="input-group" style="margin-bottom: 2rem;">
+                <label for="sub-email">Email Address</label>
+                <input type="email" id="sub-email" class="form-control" placeholder="jane@example.com">
+            </div>
+
+            <button id="btn-subscribe" class="btn-submit" style="width: 100%;">Subscribe</button>
+
+            <div id="inline-error"
+                style="color: var(--status-error); text-align: center; margin-top: 1rem; font-family: var(--font-sans); font-size: 0.95rem; display: none;">
+            </div>
+        </div>
+    </main>
+
+    <script>
+        let supabaseClient = null;
+        try {
+            supabaseClient = window.supabase.createClient(
+                'https://yeqnfckwpjeyewhbmqir.supabase.co',
+                'sb_publishable_z2KtjUuS-nJk0czUu0_4pg_anhGWeHD'
+            );
+        } catch (e) {
+            console.error('Supabase client initialization failed:', e);
+        }
+
+        const btn = document.getElementById('btn-subscribe');
+        const inlineError = document.getElementById('inline-error');
+        const formCard = document.querySelector('.form-card');
+        const toast = document.getElementById('status-toast');
+
+        const showError = (msg) => {
+            inlineError.textContent = msg;
+            inlineError.style.display = 'block';
+            if (toast) toast.style.display = 'none';
+        };
+
+        const showSuccess = (msg) => {
+            formCard.innerHTML = `<h2 style="font-family: var(--font-display); font-size: 2.2rem; line-height: 1.2; text-transform: none; letter-spacing: 0.02em;">${msg}</h2>`;
+        };
+
+        const setLoading = (isLoading) => {
+            if (isLoading) {
+                btn.disabled = true;
+                btn.textContent = 'Processing...';
+                inlineError.style.display = 'none';
+            } else {
+                btn.disabled = false;
+                btn.textContent = 'Subscribe';
+            }
+        };
+
+        async function handleSubscribe() {
+            const name = document.getElementById('sub-name').value;
+            const email = document.getElementById('sub-email').value;
+
+            // Step 1: instant frontend validation
+            if (!name || name.trim() === '') {
+                showError('Please enter your name'); return;
+            }
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!email || !emailRegex.test(email)) {
+                showError('Please enter a valid email address'); return;
+            }
+
+            // Step 2: check duplicate directly in Supabase
+            const { data: existing, error: sbError } = await supabaseClient
+                .from('contacts')
+                .select('status')
+                .eq('email', email.toLowerCase().trim())
+                .maybeSingle();
+
+            if (sbError) {
+                console.warn('Supabase duplicate check blocked (likely RLS):', sbError.message);
+            } else if (existing) {
+                if (existing.status === 'Active') {
+                    showError('This email is already subscribed'); return;
+                }
+                if (existing.status === 'Pending') {
+                    showError('Check your inbox — a confirmation email was already sent'); return;
+                }
+                // Cancelled — allow resubscribe, fall through
+            }
+
+            // Step 3: send to n8n only if all checks pass
+            setLoading(true);
+            try {
+                const res = await fetch('https://cohort2pod3.app.n8n.cloud/webhook/subscribe', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: name.trim(),
+                        email: email.toLowerCase().trim(),
+                        source: 'LinkedIn'
+                    })
+                });
+
+                let result = {};
+                try { result = await res.json(); } catch (e) { result = {}; }
+
+                if (result.success === true) {
+                    showSuccess(result.message || 'Check your inbox to confirm your subscription');
+                } else if (result.success === false) {
+                    showError(result.error || 'Something went wrong. Please try again.');
+                } else if (!res.ok) {
+                    throw new Error('Server error');
+                } else {
+                    showSuccess('Check your inbox to confirm your subscription');
+                }
+            } catch (err) {
+                showError('Network error. Please check your connection and try again.');
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        btn.addEventListener('click', handleSubscribe);
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,14 @@
+# Ignore directory
+.tmp/
+
+# Ignore environment variables
+.env
+
+# Ignore sensitive credentials
+credentials.json
+token.json
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class

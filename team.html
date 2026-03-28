@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Team Admin - Fetemi</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Serif+Display&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&family=DM+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <style>
+        :root {
+            --accent-color: #E8A838;
+            --bg-base: #080809;
+            --bg-surface: #111114;
+            --border-subtle: #222228;
+            --text-secondary: #666672;
+
+            --status-error: #ff4a4a;
+            --status-error-bg: rgba(255, 74, 74, 0.1);
+            --status-success: #2ecca8;
+            --status-success-bg: rgba(46, 204, 168, 0.1);
+
+            --font-display: 'Bebas Neue', sans-serif;
+            --font-serif: 'DM Serif Display', serif;
+            --font-sans: 'DM Sans', sans-serif;
+            --font-mono: 'DM Mono', monospace;
+
+            --spacing-xs: 0.25rem;
+            --spacing-sm: 0.5rem;
+            --spacing-md: 1rem;
+            --spacing-lg: 2rem;
+            --spacing-xl: 4rem;
+            --transition-smooth: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-base);
+            color: #ededf0;
+            font-family: var(--font-sans);
+            line-height: 1.6;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            pointer-events: none;
+            z-index: 9999;
+            opacity: 0.04;
+            filter: url(#noiseFilter);
+        }
+
+        .header {
+            text-align: center;
+            padding: var(--spacing-lg) var(--spacing-md) var(--spacing-md);
+            background: var(--bg-base);
+            position: relative;
+            z-index: 10;
+        }
+
+        .header h1 {
+            font-family: var(--font-serif);
+            font-weight: 400;
+            font-size: 2.2rem;
+            letter-spacing: -0.01em;
+            margin-bottom: var(--spacing-xs);
+        }
+
+        .header p {
+            font-family: var(--font-mono);
+            color: var(--text-secondary);
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            font-weight: 500;
+        }
+
+        .view-divider {
+            border: none;
+            height: 1px;
+            background: #1a1a1f;
+            width: 100%;
+            position: relative;
+            z-index: 10;
+        }
+
+        .admin-wrap {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: var(--spacing-xl) var(--spacing-md);
+            display: grid;
+            grid-template-columns: 1.5fr 1fr;
+            gap: 4rem;
+            position: relative;
+            z-index: 10;
+        }
+
+        @media (max-width: 900px) {
+            .admin-wrap {
+                grid-template-columns: 1fr;
+                gap: 2rem;
+            }
+        }
+
+        .section-box {
+            background: var(--bg-surface);
+            border: 1px solid var(--border-subtle);
+            border-radius: 20px;
+            padding: 2.5rem;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            display: flex;
+            flex-direction: column;
+        }
+
+        h2 {
+            font-family: var(--font-display);
+            font-size: 2.5rem;
+            margin-bottom: var(--spacing-sm);
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+        }
+
+        p.subhead {
+            color: var(--text-secondary);
+            margin-bottom: var(--spacing-lg);
+            font-size: 0.95rem;
+        }
+
+        /* Table Styles */
+        .table-responsive {
+            width: 100%;
+            overflow-x: auto;
+            border: 1px solid var(--border-subtle);
+            border-radius: 8px;
+            background: #0d0d10;
+            flex-grow: 1;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+            font-family: var(--font-sans);
+            font-size: 0.95rem;
+        }
+
+        th {
+            background: #121217;
+            padding: 1rem;
+            color: var(--text-secondary);
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            border-bottom: 1px solid var(--border-subtle);
+            white-space: nowrap;
+        }
+
+        td {
+            padding: 1.2rem 1rem;
+            border-bottom: 1px solid #1a1a1f;
+            vertical-align: middle;
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        tr:hover {
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        /* Status Badge */
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.3rem 0.6rem;
+            border-radius: 8px;
+            font-size: 0.75rem;
+            font-family: var(--font-mono);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            background: rgba(255, 255, 255, 0.05);
+            color: #ccc;
+        }
+
+        .status-badge.active {
+            background: var(--status-success-bg);
+            color: var(--status-success);
+        }
+
+        .status-badge.inactive {
+            background: var(--status-error-bg);
+            color: var(--status-error);
+        }
+
+        /* Form Inputs */
+        .input-group {
+            margin-bottom: var(--spacing-md);
+            text-align: left;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: var(--spacing-xs);
+            color: var(--text-secondary);
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+        }
+
+        .form-control {
+            width: 100%;
+            background: #0d0d10;
+            border: 1px solid #2a2a32;
+            color: #ededf0;
+            font-family: var(--font-sans);
+            padding: 1rem;
+            font-size: 0.95rem;
+            transition: var(--transition-smooth);
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: #4a5165;
+            background: #121217;
+        }
+
+        select.form-control {
+            appearance: none;
+            cursor: pointer;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23666672' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 1rem center;
+            background-size: 1em;
+            padding-right: 3rem;
+        }
+
+        /* Buttons */
+        .btn-submit {
+            width: 100%;
+            background: var(--accent-color);
+            color: var(--bg-base);
+            font-family: var(--font-display);
+            font-size: 1.4rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            border: none;
+            padding: 1.2rem;
+            cursor: pointer;
+            transition: var(--transition-smooth);
+            margin-top: 1rem;
+        }
+
+        .btn-submit:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(232, 168, 56, 0.2);
+            filter: brightness(1.1);
+        }
+
+        .btn-submit:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .btn-deactivate {
+            background: transparent;
+            color: var(--status-error);
+            border: 1px solid var(--status-error);
+            padding: 0.4rem 0.8rem;
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            cursor: pointer;
+            transition: var(--transition-smooth);
+        }
+
+        .btn-deactivate:hover:not(:disabled) {
+            background: var(--status-error-bg);
+        }
+
+        .btn-deactivate:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Toasts & Errors */
+        .toast {
+            padding: 1rem;
+            margin-bottom: var(--spacing-md);
+            border-left: 3px solid transparent;
+            display: none;
+            font-size: 0.9rem;
+            animation: fadeSlideIn 0.3s ease-out;
+            word-break: break-word;
+        }
+
+        .toast.error {
+            background: var(--status-error-bg);
+            border-left-color: var(--status-error);
+            color: var(--status-error);
+        }
+
+        .toast.success {
+            background: var(--status-success-bg);
+            border-left-color: var(--status-success);
+            color: var(--status-success);
+        }
+
+        @keyframes fadeSlideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Auth Overlay -->
+    <div id="auth-overlay"
+        style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: var(--bg-base); z-index: 99999; display: flex; flex-direction: column;">
+        <header class="header" style="padding-top: 4rem;">
+            <h1>Fetemi</h1>
+            <p>Content Engine</p>
+        </header>
+
+        <div
+            style="flex: 1; display: flex; align-items: center; justify-content: center; padding: 2rem; padding-bottom: 10rem;">
+            <div class="form-card-right"
+                style="max-width: 450px; width: 100%; padding: 3.5rem 2.5rem; text-align: center; box-sizing: border-box; background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: 20px;">
+                <h2
+                    style="font-family: var(--font-display); font-size: 2.8rem; margin-bottom: 2rem; letter-spacing: 0.05em; text-transform: uppercase;">
+                    Team Access</h2>
+
+                <div id="auth-error"
+                    style="color: var(--status-error); background: var(--status-error-bg); padding: 0.5rem; border-radius: 4px; font-family: var(--font-sans); font-size: 0.95rem; margin-bottom: 1.5rem; display: none;">
+                </div>
+
+                <div id="auth-form-container">
+                    <div class="input-group">
+                        <input type="email" id="auth-email" class="form-control" placeholder="Email address"
+                            style="text-align: center; letter-spacing: 0.05em;">
+                    </div>
+
+                    <button id="btn-auth-submit" class="btn-submit" style="margin-top: 1rem;"
+                        onclick="window.requestMagicLink()">Send Login Link</button>
+                </div>
+
+                <div id="auth-success"
+                    style="color: var(--status-success); font-family: var(--font-sans); font-size: 1.1rem; margin-top: 1rem; display: none;">
+                    Check your email for your login link.</div>
+            </div>
+        </div>
+    </div>
+
+    <svg style="display:none;">
+        <filter id="noiseFilter">
+            <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="3" stitchTiles="stitch" />
+        </filter>
+    </svg>
+
+    <!-- Main App Container -->
+    <div id="main-app" style="display: none;">
+
+        <header class="header">
+            <h1>Fetemi</h1>
+            <p id="header-user-greeting">Team Management</p>
+            <div style="position: absolute; right: 2rem; top: 2rem; display: flex; gap: 1.5rem;">
+                <a href="index.html"
+                    style="color: var(--text-secondary); text-decoration: none; font-family: var(--font-mono); font-size: 0.8rem; text-transform: uppercase;">Back
+                    to Engine</a>
+                <a href="#" onclick="window.signOut(); return false;"
+                    style="color: var(--status-error); text-decoration: none; font-family: var(--font-mono); font-size: 0.8rem; text-transform: uppercase;">Sign
+                    Out</a>
+            </div>
+        </header>
+
+        <hr class="view-divider" />
+
+        <main class="admin-wrap">
+
+            <!-- Team Members Roster -->
+            <section class="section-box admin-only">
+                <h2>Team Members</h2>
+                <p class="subhead">Manage access to the Content Engine infrastructure.</p>
+
+                <div id="roster-toast" class="toast"></div>
+
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Email</th>
+                                <th>Role</th>
+                                <th>Status</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="team-table-body">
+                            <tr>
+                                <td colspan="5" style="text-align:center; padding: 3rem; color: var(--text-secondary);">
+                                    Loading members...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Invite Team Member Form -->
+            <section class="section-box admin-only">
+                <h2>Invite Team Member</h2>
+                <p class="subhead">Provision a new account for your workspace.</p>
+
+                <div class="input-group">
+                    <label for="mem-name">Full Name</label>
+                    <input type="text" id="mem-name" class="form-control" placeholder="Jane Doe">
+                </div>
+
+                <div class="input-group">
+                    <label for="mem-email">Email Address</label>
+                    <input type="email" id="mem-email" class="form-control" placeholder="jane@example.com">
+                </div>
+
+                <div class="input-group">
+                    <label for="mem-role">Workspace Role</label>
+                    <select id="mem-role" class="form-control">
+                        <option value="" disabled selected>Select an option...</option>
+                        <option value="Admin">Admin</option>
+                        <option value="Editor">Editor</option>
+                    </select>
+                </div>
+
+                <button id="btn-add-member" class="btn-submit" style="margin-top: 1.5rem;">Send Invite</button>
+                <div id="inline-form-state"
+                    style="text-align: center; margin-top: 1rem; font-family: var(--font-sans); font-size: 0.95rem; display: none;">
+                </div>
+            </section>
+
+        </main>
+    </div> <!-- End main-app -->
+
+    <script>
+        /**
+         * Authentication Layer (Magic Link)
+         */
+        const authOverlay = document.getElementById('auth-overlay');
+        const mainApp = document.getElementById('main-app');
+        const authError = document.getElementById('auth-error');
+        const authSuccess = document.getElementById('auth-success');
+        const authForm = document.getElementById('auth-form-container');
+        const authInput = document.getElementById('auth-email');
+        const authBtn = document.getElementById('btn-auth-submit');
+
+        async function checkAuth() {
+            const session = sessionStorage.getItem('fetemi_session');
+            if (session) {
+                const { name, email, role } = JSON.parse(session);
+                showApp(name, role);
+                return;
+            }
+
+            const urlParams = new URLSearchParams(window.location.search);
+            const token = urlParams.get('token');
+
+            if (token) {
+                try {
+                    const res = await fetch('https://cohort2pod3.app.n8n.cloud/webhook/verify-login', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ token })
+                    });
+                    const result = await res.json();
+
+                    if (result.success) {
+                        sessionStorage.setItem('fetemi_session', JSON.stringify({
+                            name: result.name,
+                            email: result.email,
+                            role: result.role
+                        }));
+                        window.history.replaceState({}, document.title, window.location.pathname);
+                        showApp(result.name, result.role);
+                        return;
+                    } else {
+                        showLogin(result.error || 'Invalid or expired login link.');
+                        return;
+                    }
+                } catch {
+                    showLogin('Network error during verification.');
+                    return;
+                }
+            }
+
+            showLogin();
+        }
+
+        function showLogin(errorMessage = null) {
+            authOverlay.style.display = 'flex';
+            mainApp.style.display = 'none';
+            if (errorMessage) {
+                authError.textContent = errorMessage;
+                authError.style.display = 'block';
+            } else {
+                authError.style.display = 'none';
+            }
+        }
+
+        function showApp(name, role) {
+            authOverlay.style.display = 'none';
+            mainApp.style.display = 'block';
+
+            const greeting = document.getElementById('header-user-greeting');
+            if (greeting) greeting.textContent = `Welcome, ${name}`;
+
+            if (role === 'Editor') {
+                const adminControls = document.querySelectorAll('.admin-only');
+                adminControls.forEach(el => el.style.display = 'none');
+            }
+        }
+
+        window.signOut = () => {
+            sessionStorage.removeItem('fetemi_session');
+            window.location.reload();
+        };
+
+        window.requestMagicLink = async () => {
+            const email = authInput.value.trim();
+            if (!email) {
+                authError.textContent = 'Please enter your email address.';
+                authError.style.display = 'block';
+                return;
+            }
+
+            sessionStorage.setItem('auth_redirect', 'team.html');
+
+            authBtn.disabled = true;
+            authBtn.textContent = 'Sending...';
+            authError.style.display = 'none';
+
+            try {
+                const res = await fetch('https://cohort2pod3.app.n8n.cloud/webhook/request-login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email })
+                });
+
+                let result = {};
+                try { result = await res.json(); } catch (e) { result = { success: true }; }
+
+                if (result.success !== false) {
+                    authForm.style.display = 'none';
+                    authSuccess.style.display = 'block';
+                } else {
+                    authError.textContent = result.error || 'Failed to request login link.';
+                    authError.style.display = 'block';
+                }
+            } catch (err) {
+                authError.textContent = 'Network error. Check configuration.';
+                authError.style.display = 'block';
+            } finally {
+                authBtn.disabled = false;
+                authBtn.textContent = 'Send Login Link';
+            }
+        };
+
+        if (authInput) {
+            authInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') window.requestMagicLink();
+            });
+        }
+
+        checkAuth();
+
+        let supabaseClient = null;
+        try {
+            supabaseClient = window.supabase.createClient(
+                'https://yeqnfckwpjeyewhbmqir.supabase.co',
+                'sb_publishable_z2KtjUuS-nJk0czUu0_4pg_anhGWeHD'
+            );
+        } catch (e) {
+            console.error("Supabase failed to initialize natively", e);
+        }
+
+
+        // UI Helpers
+        const tblBody = document.getElementById('team-table-body');
+        const btnAdd = document.getElementById('btn-add-member');
+        const inlineFormState = document.getElementById('inline-form-state');
+
+        const showFormMsg = (msg, isError = true) => {
+            inlineFormState.style.display = 'block';
+            inlineFormState.style.color = isError ? 'var(--status-error)' : 'var(--status-success)';
+            inlineFormState.textContent = msg;
+        };
+
+        const loadRoster = async () => {
+            try {
+                const { data: members, error } = await supabaseClient
+                    .from('team_members')
+                    .select('id, name, email, role, status, invited_at')
+                    .order('invited_at', { ascending: false });
+
+                console.log('Team members data:', members);
+                console.log('Team members error:', error);
+
+                if (!members || members.length === 0) {
+                    tblBody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 3rem; color: var(--text-secondary);">No team members found.</td></tr>`;
+                    return;
+                }
+
+                tblBody.innerHTML = '';
+                members.forEach(mem => {
+                    const tr = document.createElement('tr');
+
+                    const badgeClass = mem.status === 'Active' ? 'active' : 'inactive';
+                    const badgeText = mem.status;
+
+                    const actionBtn = mem.status === 'Active'
+                        ? `<button class="btn-deactivate" onclick="handleDeactivate('${mem.id}', '${mem.name.replace(/'/g, "\\'")}', this)">Revoke Access</button>`
+                        : `<button class="btn-deactivate" style="color:var(--status-success); border-color:var(--status-success);" onclick="handleRestore('${mem.id}', '${mem.name.replace(/'/g, "\\'")}', this)">Restore Access</button>`;
+
+                    tr.innerHTML = `
+                        <td style="font-weight: 500;">${mem.name}</td>
+                        <td style="color: var(--text-secondary);">${mem.email}</td>
+                        <td style="font-family: var(--font-mono); font-size: 0.8rem;">${mem.role}</td>
+                        <td><span class="status-badge ${badgeClass}">${badgeText}</span></td>
+                        <td>${actionBtn}</td>
+                    `;
+                    tblBody.appendChild(tr);
+                });
+            } catch (err) {
+                tblBody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 3rem; color: var(--status-error);">Failed to load roster. Check database connection.</td></tr>`;
+            }
+        };
+
+        const handleAddMember = async () => {
+            const name = document.getElementById('mem-name').value.trim();
+            const email = document.getElementById('mem-email').value.trim();
+            const role = document.getElementById('mem-role').value;
+
+            inlineFormState.style.display = 'none';
+
+            if (!name || !email || !role) {
+                return showFormMsg('All fields are required.');
+            }
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(email)) {
+                return showFormMsg('Please enter a valid email format.');
+            }
+
+            btnAdd.disabled = true;
+            btnAdd.textContent = 'Processing...';
+
+            try {
+                const res = await fetch('https://cohort2pod3.app.n8n.cloud/webhook/add-team-member', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, email: email.toLowerCase(), role })
+                });
+
+                if (!res.ok) throw new Error('Network request failed');
+
+                let result = {};
+                try { result = await res.json(); } catch (e) { result = { success: true }; }
+
+                if (result.success !== false) {
+                    showFormMsg(`Invitation sent to ${email.toLowerCase()}`, false);
+                    document.getElementById('mem-name').value = '';
+                    document.getElementById('mem-email').value = '';
+                    document.getElementById('mem-role').value = '';
+                    await loadRoster();
+                } else {
+                    showFormMsg(result.error || 'Failed to send invitation.');
+                }
+            } catch (err) {
+                showFormMsg(err.message === 'Network request failed' ? 'Add Member Webhook Unconfigured.' : (err.message || 'An error occurred.'));
+            } finally {
+                btnAdd.disabled = false;
+                btnAdd.textContent = 'Send Invite';
+            }
+        };
+
+        window.handleDeactivate = (member_id, name, btnNode) => {
+            const parentTd = btnNode.parentElement;
+            const originalHTML = parentTd.innerHTML;
+
+            parentTd.innerHTML = `
+                <div style="font-size: 0.8rem; line-height: 1.2; margin-bottom: 0.4rem;">Are you sure you want to revoke access for ${name}?</div>
+                <div style="display: flex; gap: 0.5rem; justify-content: flex-start; align-items: center;" class="revoke-actions"></div>
+            `;
+
+            const actionDiv = parentTd.querySelector('.revoke-actions');
+
+            const confirmBtn = document.createElement('button');
+            confirmBtn.textContent = 'Confirm';
+            confirmBtn.style.cssText = 'background:var(--status-error); color:#fff; border:none; padding:4px 8px; cursor:pointer; font-family:var(--font-mono); font-size:0.75rem; border-radius:4px;';
+            confirmBtn.onclick = () => window.commitRevoke(member_id, parentTd, confirmBtn, originalHTML);
+
+            const cancelBtn = document.createElement('button');
+            cancelBtn.textContent = 'Cancel';
+            cancelBtn.style.cssText = 'background:transparent; color:#ccc; border:1px solid #ccc; padding:4px 8px; cursor:pointer; font-family:var(--font-mono); font-size:0.75rem; border-radius:4px;';
+            cancelBtn.onclick = () => { parentTd.innerHTML = originalHTML; };
+
+            actionDiv.appendChild(confirmBtn);
+            actionDiv.appendChild(cancelBtn);
+        };
+
+        window.commitRevoke = async (member_id, parentTd, confirmBtn, originalHTML) => {
+            confirmBtn.textContent = '...';
+            confirmBtn.disabled = true;
+
+            try {
+                const res = await fetch('https://cohort2pod3.app.n8n.cloud/webhook/revoke-team-member', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: member_id })
+                });
+
+                if (!res.ok) throw new Error('Network fault');
+                let result = {};
+                try { result = await res.json(); } catch (e) { result = { success: true }; }
+
+                if (result.success !== false) {
+                    const tr = parentTd.parentElement;
+                    const statusTd = tr.querySelector('.status-badge');
+                    if (statusTd) {
+                        statusTd.className = 'status-badge inactive';
+                        statusTd.textContent = 'Revoked';
+                    }
+                    parentTd.innerHTML = `<span style="color:var(--text-secondary); font-size:0.8rem; font-family:var(--font-mono); text-transform:uppercase;">Revoked</span>`;
+                } else {
+                    alert(result.error || 'Failed to revoke access.');
+                    parentTd.innerHTML = originalHTML;
+                }
+            } catch (err) {
+                alert(err.message === 'Network fault' ? 'Revoke Webhook Unconfigured.' : 'Deactivation failed.');
+                parentTd.innerHTML = originalHTML;
+            }
+        };
+
+        window.handleRestore = async (id, name, btnNode) => {
+            if (!confirm(`Restore access for ${name}?`)) return;
+            const originalText = btnNode.textContent;
+            btnNode.textContent = '...';
+            btnNode.disabled = true;
+
+            try {
+                const res = await fetch('https://cohort2pod3.app.n8n.cloud/webhook/restore-team-member', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id })
+                });
+
+                if (res.ok) {
+                    await loadRoster();
+                } else {
+                    alert('Failed to restore access.');
+                    btnNode.textContent = originalText;
+                    btnNode.disabled = false;
+                }
+            } catch (err) {
+                alert('Connection error.');
+                btnNode.textContent = originalText;
+                btnNode.disabled = false;
+            }
+        };
+
+        btnAdd.addEventListener('click', handleAddMember);
+        loadRoster();
+
+    </script>
+</body>
+
+</html>
