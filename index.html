@@ -2326,28 +2326,33 @@
                     if (isRetry) {
                         res = await executeWebhook(WEBHOOKS.publish, publishPayload);
                     } else {
-                        // Capture both responses; if save fails, we still want to try publishing
-                        const [publishRes, saveRes] = await Promise.all([
+                        // Use allSettled to ensure we attempt to capture the postId from save even if publish rejects
+                        const [publishResult, saveResult] = await Promise.allSettled([
                             executeWebhook(WEBHOOKS.publish, publishPayload),
-                            executeWebhook(WEBHOOKS.save, savePayload).catch(err => {
-                                console.error('Background Save Silent Failure:', err);
-                                return { ok: false, silentFailure: true };
-                            })
+                            executeWebhook(WEBHOOKS.save, savePayload)
                         ]);
                         
-                        // Extract postId if save was successful
-                        if (saveRes && saveRes.ok) {
+                        // Check save result for postId
+                        if (saveResult.status === 'fulfilled' && saveResult.value.ok) {
                             try {
-                                const saveData = await saveRes.clone().json().catch(() => null);
+                                const saveData = await saveResult.value.clone().json().catch(() => null);
                                 const firstSaveResult = Array.isArray(saveData) ? saveData[0] : saveData;
                                 resPostId = firstSaveResult?.post_id || firstSaveResult?.id || firstSaveResult?.postId;
                                 console.log(`📌 Extracted Post ID from background save: ${resPostId}`);
                             } catch (e) {
                                 console.error('Failed to parse save response for postId:', e);
                             }
+                        } else if (saveResult.status === 'rejected') {
+                            console.error('Background Save Network Failure:', saveResult.reason);
                         }
                         
-                        res = publishRes;
+                        // Handle publish result
+                        if (publishResult.status === 'fulfilled') {
+                            res = publishResult.value;
+                        } else {
+                            // Re-throw if it was a network error so the catch block handles it
+                            throw publishResult.reason;
+                        }
                     }
                 } else {
                     res = await executeWebhook(WEBHOOKS.save, savePayload);
@@ -2359,9 +2364,10 @@
                     } catch (e) { }
                 }
 
-                if (!res.ok) {
-                    const errorResponse = await res.text().catch(() => '');
-                    throw new Error(errorResponse || `HTTP ${res.status}`);
+                if (!res || !res.ok) {
+                    const status = res ? res.status : 'Network Error';
+                    const errorResponse = res ? await res.text().catch(() => '') : '';
+                    throw new Error(errorResponse || `HTTP ${status}`);
                 }
 
                 const responseData = await res.json();
@@ -2397,14 +2403,18 @@
             } catch (err) {
                 const toast = document.getElementById(`toast-${platform}`);
                 if (actionType === 'publish_now') {
-                    toast.style.display = 'none';
-                    row.style.display = 'none'; // Keep hidden on error
+                    if (toast) toast.style.display = 'none';
+                    if (row) row.style.display = 'none'; // Keep hidden on error
                 } else {
                     panel.style.display = 'none';
                     row.style.display = 'none'; // Ensure main buttons don't reappear
                 }
 
-                const targetContainer = (actionType === 'publish_now' ? row.parentElement : panel.parentElement);
+                const targetContainer = (actionType === 'publish_now' ? (row ? row.parentElement : null) : (panel ? panel.parentElement : null));
+                if (!targetContainer) {
+                    console.error("❌ targetContainer not found for error display", { platform, actionType });
+                    return;
+                }
                 const existingErr = targetContainer.querySelector('.inline-webhook-error');
                 if (existingErr) existingErr.remove();
 
@@ -2412,7 +2422,7 @@
                 const errDiv = document.createElement('div');
                 errDiv.className = 'inline-webhook-error';
                 errDiv.id = errId;
-                errDiv.style = "background: var(--status-error-bg); border-left: 3px solid var(--status-error); padding: 1rem; margin-top: 1rem; animation: fadeSlideIn 0.3s ease-out;";
+                errDiv.style.cssText = "background: var(--status-error-bg); border-left: 3px solid var(--status-error); padding: 1rem; margin-top: 1rem; animation: fadeSlideIn 0.3s ease-out; display: block;";
                 
                 const contentText = platform === 'email' ? data.email_body : (platform === 'twitter' ? (data.tweet || data.twitter) : data.linkedin);
                 // Store content safely on the element to avoid HTML attribute escaping issues
