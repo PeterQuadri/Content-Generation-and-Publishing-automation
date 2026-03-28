@@ -277,6 +277,99 @@
         }
 
 
+        /* Image Upload Styling */
+        .image-dropzone {
+            border: 2px dashed var(--border-subtle);
+            border-radius: 12px;
+            padding: 2.5rem 1.5rem;
+            text-align: center;
+            transition: var(--transition-smooth);
+            cursor: pointer;
+            background: rgba(255, 255, 255, 0.02);
+            position: relative;
+        }
+
+        .image-dropzone:hover, .image-dropzone.dragover {
+            border-color: var(--accent-color);
+            background: rgba(232, 168, 56, 0.05);
+        }
+
+        .image-dropzone p {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            margin-top: 0.5rem;
+        }
+
+        .image-preview-container {
+            display: none;
+            margin-top: 1.5rem;
+            position: relative;
+        }
+
+        .image-preview-thumbnail {
+            width: 100%;
+            max-height: 200px;
+            object-fit: contain;
+            border-radius: 8px;
+            border: 1px solid var(--border-subtle);
+        }
+
+        .btn-clear-image {
+            position: absolute;
+            top: -10px;
+            right: -10px;
+            background: var(--status-error);
+            color: white;
+            border: none;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            transition: var(--transition-smooth);
+        }
+
+        .btn-clear-image:hover {
+            transform: scale(1.1);
+            filter: brightness(1.1);
+        }
+
+        .input-toggle {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 2rem;
+            background: rgba(255, 255, 255, 0.03);
+            padding: 4px;
+            border-radius: 50px;
+            width: fit-content;
+        }
+
+        .btn-toggle-pill {
+            background: transparent;
+            border: 1px solid transparent;
+            color: var(--text-secondary);
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            padding: 0.5rem 1.25rem;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: var(--transition-smooth);
+        }
+
+        .btn-toggle-pill.active {
+            background: var(--accent-color);
+            color: var(--bg-base);
+            font-weight: 600;
+        }
+
+
         /* ========================================================
            STATE 2: Loading UI
            ======================================================== */
@@ -1311,6 +1404,7 @@
                             Idea</button>
                         <button class="btn-toggle-pill" onclick="window.switchInputMode('url', this)">Reference
                             URL</button>
+                        <button class="btn-toggle-pill" onclick="window.switchInputMode('image', this)">Visual Reference</button>
                     </div>
 
                     <div id="group-idea" class="input-group">
@@ -1327,6 +1421,24 @@
                         <input type="url" id="input-url" class="form-control"
                             placeholder="https://example.com/research">
                         <div id="url-error"
+                            style="color: var(--status-error); font-size: 0.8rem; margin-top: 0.5rem; display: none; font-family: var(--font-mono);">
+                        </div>
+                    </div>
+
+                    <div id="group-image" class="input-group" style="display: none; margin-bottom: 2rem;">
+                        <label>Visual Reference (Image)</label>
+                        <div class="image-dropzone" id="image-dropzone" onclick="document.getElementById('input-image').click()">
+                            <input type="file" id="input-image" accept="image/*" style="display: none;">
+                            <div id="dropzone-prompt">
+                                <span style="font-size: 2rem; display: block; margin-bottom: 0.5rem;">🖼️</span>
+                                <p>Click or drag image here to analyze</p>
+                            </div>
+                            <div id="image-preview-container" class="image-preview-container">
+                                <img id="image-preview" class="image-preview-thumbnail" src="" alt="Preview">
+                                <button type="button" class="btn-clear-image" id="btn-clear-image" onclick="event.stopPropagation(); window.clearSelectedImage();">&times;</button>
+                            </div>
+                        </div>
+                        <div id="image-error"
                             style="color: var(--status-error); font-size: 0.8rem; margin-top: 0.5rem; display: none; font-family: var(--font-mono);">
                         </div>
                     </div>
@@ -1816,6 +1928,7 @@
 
             document.getElementById('input-idea').value = '';
             document.getElementById('input-url').value = '';
+            if (window.clearSelectedImage) window.clearSelectedImage();
 
             globalData = { drafts: [], finalContent: {}, publishedSet: new Set() };
             DOM.publishCompleteContainer.style.display = 'none';
@@ -1897,14 +2010,53 @@
             document.querySelectorAll('.btn-toggle-pill').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
 
-            if (mode === 'idea') {
-                document.getElementById('group-idea').style.display = 'block';
-                document.getElementById('group-url').style.display = 'none';
-            } else {
-                document.getElementById('group-idea').style.display = 'none';
-                document.getElementById('group-url').style.display = 'block';
-            }
+            const groupIdea = document.getElementById('group-idea');
+            const groupUrl = document.getElementById('group-url');
+            const groupImage = document.getElementById('group-image');
+
+            groupIdea.style.display = 'none';
+            groupUrl.style.display = 'none';
+            groupImage.style.display = 'none';
+
+            if (mode === 'idea') groupIdea.style.display = 'block';
+            else if (mode === 'url') groupUrl.style.display = 'block';
+            else if (mode === 'image') groupImage.style.display = 'block';
         };
+
+        window.clearSelectedImage = () => {
+            const input = document.getElementById('input-image');
+            const previewContainer = document.getElementById('image-preview-container');
+            const prompt = document.getElementById('dropzone-prompt');
+            const previewImg = document.getElementById('image-preview');
+
+            input.value = '';
+            previewImg.src = '';
+            previewContainer.style.display = 'none';
+            prompt.style.display = 'block';
+        };
+
+        // Initialize Image Input Listeners
+        setTimeout(() => {
+            const imageInput = document.getElementById('input-image');
+            if (imageInput) {
+                imageInput.onchange = (e) => {
+                    const file = e.target.files[0];
+                    if (file) {
+                        const reader = new FileReader();
+                        reader.onload = (event) => {
+                            const previewContainer = document.getElementById('image-preview-container');
+                            const prompt = document.getElementById('dropzone-prompt');
+                            const previewImg = document.getElementById('image-preview');
+
+                            previewImg.src = event.target.result;
+                            previewContainer.style.display = 'block';
+                            prompt.style.display = 'none';
+                        };
+                        reader.readAsDataURL(file);
+                    }
+                };
+            }
+        }, 500);
 
         function sanitiseUrl(url) {
             url = url.trim();
@@ -1919,18 +2071,22 @@
             }
         }
 
-        const triggerIntake = () => {
+        const triggerIntake = async () => {
             const ideaInput = document.getElementById('input-idea');
             const urlInput = document.getElementById('input-url');
+            const imageInput = document.getElementById('input-image');
             const ideaError = document.getElementById('idea-error');
             const urlError = document.getElementById('url-error');
+            const imageError = document.getElementById('image-error');
 
             // Reset errors
-            ideaError.style.display = 'none';
-            urlError.style.display = 'none';
+            if (ideaError) ideaError.style.display = 'none';
+            if (urlError) urlError.style.display = 'none';
+            if (imageError) imageError.style.display = 'none';
 
             let idea = '';
             let url = '';
+            let imageBase64 = '';
 
             if (activeInputMode === 'idea') {
                 idea = ideaInput.value.trim();
@@ -1939,7 +2095,7 @@
                     ideaError.style.display = 'block';
                     return;
                 }
-            } else {
+            } else if (activeInputMode === 'url') {
                 const inputVal = urlInput.value.trim();
                 if (!inputVal) {
                     urlError.textContent = 'Please enter a URL';
@@ -1954,9 +2110,22 @@
                     return;
                 }
                 url = result.url;
+            } else if (activeInputMode === 'image') {
+                const file = imageInput.files[0];
+                if (!file) {
+                    imageError.textContent = 'Please select an image reference';
+                    imageError.style.display = 'block';
+                    return;
+                }
+                // Convert to Base64
+                imageBase64 = await new Promise((resolve) => {
+                    const reader = new FileReader();
+                    reader.onload = (e) => resolve(e.target.result);
+                    reader.readAsDataURL(file);
+                });
             }
 
-            const payload = { idea, url, session_id: sessionId };
+            const payload = { idea, url, image_base64: imageBase64, session_id: sessionId };
 
             const run = async () => {
                 switchView(2); // Transition to Loading
