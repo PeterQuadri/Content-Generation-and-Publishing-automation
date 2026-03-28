@@ -2320,54 +2320,26 @@
                 console.log(`📦 Sending Save Webhook (${platform}):`, savePayload);
                 
                 let res;
-                let resPostId = null; 
-
                 if (actionType === 'publish_now') {
                     if (isRetry) {
                         res = await executeWebhook(WEBHOOKS.publish, publishPayload);
                     } else {
-                        // Use allSettled to ensure we attempt to capture the postId from save even if publish rejects
-                        const [publishResult, saveResult] = await Promise.allSettled([
+                        const [publishRes] = await Promise.all([
                             executeWebhook(WEBHOOKS.publish, publishPayload),
-                            executeWebhook(WEBHOOKS.save, savePayload)
+                            executeWebhook(WEBHOOKS.save, savePayload).catch(err => {
+                                console.error('Background Save Silent Failure:', err);
+                                return { ok: true };
+                            })
                         ]);
-                        
-                        // Check save result for postId
-                        if (saveResult.status === 'fulfilled' && saveResult.value.ok) {
-                            try {
-                                const saveData = await saveResult.value.clone().json().catch(() => null);
-                                const firstSaveResult = Array.isArray(saveData) ? saveData[0] : saveData;
-                                resPostId = firstSaveResult?.post_id || firstSaveResult?.id || firstSaveResult?.postId;
-                                console.log(`📌 Extracted Post ID from background save: ${resPostId}`);
-                            } catch (e) {
-                                console.error('Failed to parse save response for postId:', e);
-                            }
-                        } else if (saveResult.status === 'rejected') {
-                            console.error('Background Save Network Failure:', saveResult.reason);
-                        }
-                        
-                        // Handle publish result
-                        if (publishResult.status === 'fulfilled') {
-                            res = publishResult.value;
-                        } else {
-                            // Re-throw if it was a network error so the catch block handles it
-                            throw publishResult.reason;
-                        }
+                        res = publishRes;
                     }
                 } else {
                     res = await executeWebhook(WEBHOOKS.save, savePayload);
-                    // Extract postId from direct save response
-                    try {
-                        const saveData = await res.clone().json().catch(() => null);
-                        const firstSaveResult = Array.isArray(saveData) ? saveData[0] : saveData;
-                        resPostId = firstSaveResult?.post_id || firstSaveResult?.id || firstSaveResult?.postId;
-                    } catch (e) { }
                 }
 
-                if (!res || !res.ok) {
-                    const status = res ? res.status : 'Network Error';
-                    const errorResponse = res ? await res.text().catch(() => '') : '';
-                    throw new Error(errorResponse || `HTTP ${status}`);
+                if (!res.ok) {
+                    const errorResponse = await res.text().catch(() => '');
+                    throw new Error(errorResponse || `HTTP ${res.status}`);
                 }
 
                 const responseData = await res.json();
@@ -2398,25 +2370,19 @@
                 }
 
                 document.getElementById('publish-complete-action').style.display = 'block';
-                if (win                console.error(`❌ performActualPublish encountered an error on ${platform}:`, err);
-                
+                if (window.loadDashboardData) window.loadDashboardData();
+
+            } catch (err) {
                 const toast = document.getElementById(`toast-${platform}`);
-                const row = document.getElementById(`row-${platform}`);
-                const panel = document.getElementById(`panel-${platform}`);
-
                 if (actionType === 'publish_now') {
-                    if (toast) toast.style.display = 'none';
-                    if (row) row.style.display = 'none'; 
+                    toast.style.display = 'none';
+                    row.style.display = 'none'; // Keep hidden on error
                 } else {
-                    if (panel) panel.style.display = 'none';
-                    if (row) row.style.display = 'none'; 
+                    panel.style.display = 'none';
+                    row.style.display = 'none'; // Ensure main buttons don't reappear
                 }
 
-                const targetContainer = (actionType === 'publish_now' ? (row ? row.parentElement : null) : (panel ? panel.parentElement : null));
-                if (!targetContainer) {
-                    console.error("❌ Critical: targetContainer not found for error display", { platform, actionType, rowExists: !!row, panelExists: !!panel });
-                    return;
-                }
+                const targetContainer = (actionType === 'publish_now' ? row.parentElement : panel.parentElement);
                 const existingErr = targetContainer.querySelector('.inline-webhook-error');
                 if (existingErr) existingErr.remove();
 
@@ -2424,21 +2390,14 @@
                 const errDiv = document.createElement('div');
                 errDiv.className = 'inline-webhook-error';
                 errDiv.id = errId;
-                errDiv.style.cssText = "background: var(--status-error-bg); border-left: 3px solid var(--status-error); padding: 1rem; margin-top: 1rem; animation: fadeSlideIn 0.3s ease-out; display: block; visibility: visible; opacity: 1;";
+                errDiv.style = "background: var(--status-error-bg); border-left: 3px solid var(--status-error); padding: 1rem; margin-top: 1rem; animation: fadeSlideIn 0.3s ease-out;";
                 
-                let contentText = '';
-                try {
-                    contentText = platform === 'email' ? data.email_body : (platform === 'twitter' ? (data.tweet || data.twitter) : data.linkedin);
-                } catch (e) {
-                    console.error("Failed to extract contentText for error display", e);
-                }
-ter' ? (data.tweet || data.twitter) : data.linkedin);
+                const contentText = platform === 'email' ? data.email_body : (platform === 'twitter' ? (data.tweet || data.twitter) : data.linkedin);
                 // Store content safely on the element to avoid HTML attribute escaping issues
                 errDiv.dataset.content = contentText;
                 errDiv.dataset.platform = platform;
                 errDiv.dataset.actionType = actionType;
                 errDiv.dataset.scheduledTime = scheduledTime || '';
-                if (resPostId) errDiv.dataset.postId = resPostId;
                 
                 errDiv.innerHTML = `
                     <p style="color: var(--status-error); font-size: 0.85rem; padding-bottom: 0.8rem; font-family:var(--font-mono);">${err.message}</p>
@@ -2465,7 +2424,7 @@ ter' ? (data.tweet || data.twitter) : data.linkedin);
         window.markAsManual = async (errId, btn) => {
             const errDiv = document.getElementById(errId);
             if (!errDiv) return;
-            const { content, platform, postId } = errDiv.dataset;
+            const { content, platform } = errDiv.dataset;
             const originalText = btn.textContent;
             btn.disabled = true;
             btn.textContent = 'Marking...';
@@ -2477,7 +2436,6 @@ ter' ? (data.tweet || data.twitter) : data.linkedin);
                     body: JSON.stringify({
                         content: content,
                         platform: platform,
-                        post_id: postId || null,
                         session_id: sessionId
                     })
                 });
